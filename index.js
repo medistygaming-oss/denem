@@ -254,7 +254,7 @@ app.get("/login", (req, res) => {
     <html lang="tr">
     <head>
       <meta charset="UTF-8">
-      <title>Giriş Yap — Vazgucxn Bot</title>
+      <title>Giriş Yap — Vazgucxn Systems</title>
       <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a0a0a; color: #fff; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
         .card { background: #121212; padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); text-align: center; border: 1px solid #222; max-width: 400px; width: 100%; }
@@ -269,7 +269,7 @@ app.get("/login", (req, res) => {
     </head>
     <body>
       <div class="card">
-        <h1>Yönetim Paneli Girişi</h1>
+        <h1>Knesta Yönetim Paneli Girişi</h1>
         <p>Lütfen devam etmek için şifrenizi girin.</p>
         ${req.query.error ? '<div class="error">❌ Hatalı şifre, tekrar deneyin.</div>' : ''}
         <form action="/login" method="POST">
@@ -365,7 +365,7 @@ app.get("/panel", checkAuth, async (req, res) => {
         </div>
 
         <div class="section">
-          <h2>⚡ Hızlı Bot Durumu & Bilgi</h2>
+          <h2>· Hızlı Bot Durumu & Bilgi</h2>
           <p style="color: #a1a1aa; line-height: 1.6;">Bot sistemsel olarak aktif çalışmaktadır. Sol menüden ses kanallarındaki üyeleri yönetebilir, Whitelist ve Yetkili listelerini güncelleyebilir, ID girerek ban/kick atabilirsiniz.</p>
         </div>
       </div>
@@ -427,7 +427,7 @@ app.get("/panel/moderation", checkAuth, async (req, res) => {
         </div>
 
         <div class="section">
-          <h2>👢 Üye Sunucudan At (Kick)</h2>
+          <h2>🔨 Üye Sunucudan At (Kick)</h2>
           <form id="kickForm">
             <label>Kullanıcı Seç veya ID Gir</label>
             <select name="userIdSelect" onchange="document.getElementById('kickUserId').value=this.value">
@@ -1755,7 +1755,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 // ===================== READY & BOOTSTRAP =====================
 function setBotPresence() {
   if (!client.user) return;
-  client.user.setPresence({ activities: [{ name: "Vazgucxn Web Panel", type: ActivityType.Playing }], status: "dnd" });
+  client.user.setPresence({ activities: [{ name: "Vazgucxn 🤍 Knesta ", type: ActivityType.Playing }], status: "dnd" });
 }
 
 client.once(Events.ClientReady, () => {

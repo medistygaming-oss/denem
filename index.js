@@ -205,98 +205,63 @@ app.use(session({
 
 // Web Panel Yetki Kontrolü Middleware
 function checkAuth(req, res, next) {
-  if (req.session && req.session.user && (isOwner(req.session.user.id) || isStaff(req.session.user.id))) {
+  if (req.session && req.session.authenticated) {
     return next();
   }
   return res.redirect("/login");
 }
 
-function checkOwnerAuth(req, res, next) {
-  if (req.session && req.session.user && isOwner(req.session.user.id)) {
-    return next();
-  }
-  return res.status(403).send("<h1>403 Forbidden</h1><p>Bu sayfaya yalnızca bot sahipleri (Owner) erişebilir.</p><a href='/panel'>Geri Dön</a>");
-}
-
-// OAuth2 Giriş Rotaları
+// Şifre ile Giriş Rotaları
 app.get("/login", (req, res) => {
-  if (!CLIENT_ID || !CLIENT_SECRET) {
-    return res.send("<h3>❌ Hata: CLIENT_ID veya CLIENT_SECRET .env dosyasında tanımlı değil!</h3>");
-  }
-  const redirectUri = `${PUBLIC_URL || ('http://localhost:' + PORT)}/auth/callback`;
-  const url = `https://discord.com/api/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=identify guilds`;
-  res.redirect(url);
-});
-
-app.get("/auth/callback", async (req, res) => {
-  const code = req.query.code;
-  if (!code) return res.redirect("/login");
-  try {
-    const redirectUri = `${PUBLIC_URL || ('http://localhost:' + PORT)}/auth/callback`;
-    const params = new URLSearchParams({
-      client_id: CLIENT_ID,
-      client_secret: CLIENT_SECRET,
-      grant_type: 'authorization_code',
-      code: code,
-      redirect_uri: redirectUri,
-    });
-
-    const tokenRes = await _fetch('https://discord.com/api/oauth2/token', {
-      method: 'POST',
-      body: params,
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    });
-    const tokenData = await tokenRes.json();
-    if (!tokenData.access_token) return res.redirect('/login');
-
-    const userRes = await _fetch('https://discord.com/api/users/@me', {
-      headers: { authorization: `Bearer ${tokenData.access_token}` },
-    });
-    const userData = await userRes.json();
-
-    if (!isOwner(userData.id) && !isStaff(userData.id)) {
-      return res.send("<h3>❌ Erişim Reddedildi</h3><p>Discord hesabınız bu sunucunun yönetim paneline giriş yetkisine sahip değil (Staff veya Owner olmalısınız).</p><a href='/login'>Tekrar Dene</a>");
-    }
-
-    req.session.user = { id: userData.id, username: userData.username, discriminator: userData.discriminator, avatar: userData.avatar };
-    res.redirect("/panel");
-  } catch (e) {
-    console.error("OAuth error:", e);
-    res.redirect('/login');
-  }
-});
-
-app.get("/logout", (req, res) => {
-  req.session.destroy();
-  res.redirect("/");
-});
-
-// Modern Web Panel Arayüzü (HTML / CSS / JS)
-app.get("/", (req, res) => {
   res.send(`
     <!DOCTYPE html>
     <html lang="tr">
     <head>
       <meta charset="UTF-8">
-      <title>Vazgucxn Bot — Web Yönetim Paneli</title>
+      <title>Giriş Yap — Vazgucxn Bot</title>
       <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #070d1b; color: #fff; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        .card { background: #0b1a3a; padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); text-align: center; border: 1px solid #1a3668; max-width: 450px; width: 100%; }
-        h1 { margin-bottom: 10px; color: #60a5fa; font-size: 26px; }
-        p { color: #94a3b8; font-size: 14px; margin-bottom: 30px; }
-        .btn { display: inline-block; background: #5865F2; color: #fff; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-weight: 600; transition: 0.2s; box-shadow: 0 4px 12px rgba(88,101,242,0.4); }
+        .card { background: #0b1a3a; padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); text-align: center; border: 1px solid #1a3668; max-width: 400px; width: 100%; }
+        h1 { margin-bottom: 10px; color: #60a5fa; font-size: 24px; }
+        p { color: #94a3b8; font-size: 14px; margin-bottom: 25px; }
+        input { background: #050b14; border: 1px solid #334155; color: #fff; padding: 12px; border-radius: 6px; width: 100%; margin-bottom: 20px; font-size: 14px; box-sizing: border-box; }
+        .btn { display: inline-block; background: #5865F2; color: #fff; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-weight: 600; transition: 0.2s; box-shadow: 0 4px 12px rgba(88,101,242,0.4); width: 100%; border: none; cursor: pointer; font-size: 14px; }
         .btn:hover { background: #4752C4; transform: translateY(-2px); }
+        .error { color: #ef4444; font-size: 13px; margin-bottom: 15px; }
       </style>
     </head>
     <body>
       <div class="card">
-        <h1>Vazgucxn Guard & Ticket Bot</h1>
-        <p>Discord sunucunuzu tam yetkiyle yönetmek, üyeleri kontrol etmek ve FiveM entegrasyonlarını yönetmek için panoya giriş yapın.</p>
-        <a href="/login" class="btn">Discord ile Giriş Yap</a>
+        <h1>Yönetim Paneli Girişi</h1>
+        <p>Lütfen panele erişmek için şifrenizi girin.</p>
+        ${req.query.error ? '<div class="error">❌ Hatalı şifre, tekrar deneyin.</div>' : ''}
+        <form action="/login" method="POST">
+          <input type="password" name="password" placeholder="Şifre..." required />
+          <button type="submit" class="btn">Giriş Yap</button>
+        </form>
       </div>
     </body>
     </html>
   `);
+});
+
+app.post("/login", (req, res) => {
+  const { password } = req.body;
+  if (password === "knesta112233") {
+    req.session.authenticated = true;
+    return res.redirect("/panel");
+  }
+  return res.redirect("/login?error=true");
+});
+
+app.get("/logout", (req, res) => {
+  req.session.destroy();
+  res.redirect("/login");
+});
+
+// Modern Web Panel Arayüzü (HTML / CSS / JS)
+app.get("/", (req, res) => {
+  res.redirect("/panel");
 });
 
 app.get("/panel", checkAuth, async (req, res) => {
@@ -306,7 +271,6 @@ app.get("/panel", checkAuth, async (req, res) => {
   const channelsCount = guild ? guild.channels.cache.size : 0;
   
   let voiceChannels = [];
-  let onlineMembers = [];
   if (guild) {
     try {
       await guild.members.fetch();
@@ -315,7 +279,6 @@ app.get("/panel", checkAuth, async (req, res) => {
         name: c.name,
         members: c.members.map(m => ({ id: m.id, tag: m.user.tag, deaf: m.voice.deaf, mute: m.voice.serverMute }))
       }));
-      onlineMembers = guild.members.cache.filter(m => !m.user.bot).map(m => ({ id: m.id, tag: m.user.tag }));
     } catch {}
   }
 
@@ -342,17 +305,6 @@ app.get("/panel", checkAuth, async (req, res) => {
         .stat-card .val { font-size: 26px; font-weight: bold; color: #60a5fa; }
         .section { background: #0b1a3a; padding: 25px; border-radius: 10px; border: 1px solid #1a3668; margin-bottom: 30px; }
         .section h2 { margin-top: 0; color: #60a5fa; font-size: 18px; border-bottom: 1px solid #1e3a8a; padding-bottom: 10px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #1e293b; font-size: 14px; }
-        th { color: #94a3b8; }
-        .btn { background: #3b82f6; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; font-size: 13px; transition: 0.2s; }
-        .btn:hover { background: #2563eb; }
-        .btn-danger { background: #ef4444; }
-        .btn-danger:hover { background: #dc2626; }
-        .btn-success { background: #10b981; }
-        .btn-success:hover { background: #059669; }
-        input, select { background: #050b14; border: 1px solid #334155; color: #fff; padding: 8px 12px; border-radius: 6px; width: 100%; margin-top: 6px; margin-bottom: 15px; }
-        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
       </style>
     </head>
     <body>
@@ -368,7 +320,7 @@ app.get("/panel", checkAuth, async (req, res) => {
       <div class="main">
         <div class="header">
           <h1>Sunucu Yönetim Paneli — ${guildName}</h1>
-          <div class="user-badge">👤 ${req.session.user.username}</div>
+          <div class="user-badge">👤 Admin</div>
         </div>
 
         <div class="stats-grid">
@@ -400,7 +352,7 @@ app.get("/panel", checkAuth, async (req, res) => {
   `);
 });
 
-// Moderasyon Sayfası (Ban, Kick, Mute, Unmute, vb.)
+// Moderasyon Sayfası (Ban, Kick, vb.)
 app.get("/panel/moderation", checkAuth, async (req, res) => {
   const guild = client.guilds.cache.first();
   let members = [];
@@ -516,11 +468,10 @@ app.get("/panel/moderation", checkAuth, async (req, res) => {
   `);
 });
 
-// Ses Kontrolü Sayfası (Sesteki kişileri görme, mute, deaf, move)
+// Ses Kontrolü Sayfası
 app.get("/panel/voice", checkAuth, async (req, res) => {
   const guild = client.guilds.cache.first();
   let voiceChannels = [];
-  let allMembers = [];
   if (guild) {
     try {
       await guild.members.fetch();
@@ -534,7 +485,6 @@ app.get("/panel/voice", checkAuth, async (req, res) => {
           mute: m.voice.serverMute || m.voice.selfMute 
         }))
       }));
-      allMembers = guild.members.cache.filter(m => !m.user.bot).map(m => ({ id: m.id, tag: m.user.tag }));
     } catch {}
   }
 
@@ -855,18 +805,6 @@ function ensureActivity(id) {
 }
 function touchLastMessage(id) { ensureActivity(id).lastMessageAt = Date.now(); }
 function touchLastVoiceJoin(id) { ensureActivity(id).lastVoiceJoinAt = Date.now(); }
-function touchIngameJoin(id) { ensureActivity(id).ingameCount += 1; }
-function formatAgo(ms) {
-  if (!ms) return "Hiç";
-  const diff = Date.now() - ms;
-  if (diff < 0) return "Az önce";
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return "Az önce";
-  if (min < 60) return `${min} dakika önce`;
-  const h = Math.floor(min / 60);
-  if (h < 24) return `${h} saat önce`;
-  return `${Math.floor(h / 24)} gün önce`;
-}
 
 function getCounterBucket(guildId) {
   if (!guardCounters.has(guildId)) guardCounters.set(guildId, new Map());
@@ -1243,73 +1181,6 @@ async function handleTicketClose(interaction) {
   if (interaction.user.id !== opener && !admin && !isStaff(interaction.user.id)) return interaction.editReply("Yetkin yok.");
   await interaction.channel.delete().catch(() => {});
   ticketOwners.delete(interaction.channel.id);
-}
-
-// ===================== INGAME SİSTEMİ =====================
-const ingameList = new Map();
-
-function parseDurationToMs(text) {
-  if (!text) return null;
-  const t = String(text).toLowerCase().replace(",", ".");
-  let totalMs = 0;
-  let matched = false;
-  const dayMatch = t.match(/(\d+(?:\.\d+)?)\s*(g|gün|gun|d|day)\b/);
-  const hourMatch = t.match(/(\d+(?:\.\d+)?)\s*(sa|saat|h|hr|hour)\b/);
-  const minMatch = t.match(/(\d+(?:\.\d+)?)\s*(dk|dak|dakika|m|min)\b/);
-  if (dayMatch) { totalMs += parseFloat(dayMatch[1]) * 86400000; matched = true; }
-  if (hourMatch) { totalMs += parseFloat(hourMatch[1]) * 3600000; matched = true; }
-  if (minMatch) { totalMs += parseFloat(minMatch[1]) * 60000; matched = true; }
-  if (matched) return totalMs;
-  const onlyNum = t.match(/^(\d+(?:\.\d+)?)$/);
-  if (onlyNum) return parseFloat(onlyNum[1]) * 60000;
-  return null;
-}
-
-function formatRemaining(ms) {
-  if (ms <= 0) return "Süre doldu";
-  const totalMin = Math.ceil(ms / 60000);
-  const h = Math.floor(totalMin / 60);
-  const m = totalMin % 60;
-  if (h > 0 && m > 0) return `${h} saat ${m} dakika sonra`;
-  if (h > 0) return `${h} saat sonra`;
-  return `${m} dakika sonra`;
-}
-
-function ingameRows(closed) {
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("ingame_join").setLabel("Katıl").setStyle(ButtonStyle.Success).setEmoji(EMOJI.success).setDisabled(!!closed),
-    new ButtonBuilder().setCustomId("ingame_leave").setLabel("Ayrıl").setStyle(ButtonStyle.Danger).setEmoji(EMOJI.trash).setDisabled(!!closed),
-    new ButtonBuilder().setCustomId("ingame_info").setLabel("Bilgi").setStyle(ButtonStyle.Secondary).setEmoji(EMOJI.info),
-    new ButtonBuilder().setCustomId("ingame_cancel").setLabel("İPTAL ET").setStyle(ButtonStyle.Danger).setEmoji(EMOJI.warn).setDisabled(!!closed)
-  );
-}
-
-function ingameEmbed(guild, data) {
-  const list = data.users.length ? data.users.map((id, idx) => `**${idx + 1}.** <@${id}> \`${id}\``).join("\n") : `${EMOJI.warn} ・ Henüz katılan yok.`;
-  const remaining = data.endsAt ? data.endsAt - Date.now() : null;
-  return createEmbed(guild, {
-    title: line(EMOJI.crown, data.title),
-    description: `\`[ MAIN KADRO: ${data.users.length} / ${data.limit} ]\`\n\n${EMOJI.info} ・ **Süre:** ${data.closed ? "Kapandı" : (remaining !== null ? formatRemaining(remaining) : "Belirsiz")}\n\n${EMOJI.right} ・ **Katılımcılar**\n${list}`,
-    image: TICKET_BANNER_URL || undefined
-  });
-}
-
-async function refreshIngameMessage(guild, msgId) {
-  const data = ingameList.get(msgId);
-  if (!data) return;
-  const channel = guild.channels.cache.get(data.channelId);
-  if (!channel) return;
-  const msg = await channel.messages.fetch(msgId).catch(() => null);
-  if (!msg) return;
-  await msg.edit({ embeds: [ingameEmbed(guild, data)], components: [ingameRows(data.closed)] }).catch(() => {});
-}
-
-async function closeIngame(guild, msgId, reason) {
-  const data = ingameList.get(msgId);
-  if (!data || data.closed) return;
-  data.closed = true;
-  if (data.timer) { clearTimeout(data.timer); data.timer = null; }
-  await refreshIngameMessage(guild, msgId);
 }
 
 // ===================== SLASH KOMUTLARI =====================

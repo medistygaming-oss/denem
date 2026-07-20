@@ -211,7 +211,41 @@ function checkAuth(req, res, next) {
   return res.redirect("/login");
 }
 
-// Şifre ile Giriş Rotaları
+// Siyah Tema Ortak Stil Tanımı
+const blackThemeCSS = `
+  * { box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a0a0a; color: #e0e0e0; margin: 0; padding: 0; display: flex; }
+  sidebar { width: 260px; background: #121212; height: 100vh; position: fixed; padding: 25px 20px; border-right: 1px solid #222; display: flex; flex-direction: column; }
+  sidebar h2 { font-size: 18px; color: #fff; margin-top: 0; margin-bottom: 30px; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
+  sidebar a { color: #a0a0a0; text-decoration: none; padding: 12px 14px; border-radius: 6px; margin-bottom: 6px; display: block; font-weight: 500; transition: 0.2s; }
+  sidebar a:hover, sidebar a.active { background: #1e1e1e; color: #fff; border-left: 3px solid #3b82f6; }
+  .main { margin-left: 260px; padding: 40px; width: calc(100% - 260px); max-width: 1400px; }
+  .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 35px; border-bottom: 1px solid #222; padding-bottom: 20px; }
+  .header h1 { margin: 0; font-size: 24px; color: #ffffff; }
+  .user-badge { background: #161616; padding: 8px 16px; border-radius: 20px; border: 1px solid #333; font-size: 14px; color: #ccc; }
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 35px; }
+  .stat-card { background: #121212; padding: 22px; border-radius: 10px; border: 1px solid #222; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+  .stat-card h3 { margin: 0 0 10px 0; font-size: 13px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-card .val { font-size: 26px; font-weight: bold; color: #fff; }
+  .section { background: #121212; padding: 25px; border-radius: 10px; border: 1px solid #222; margin-bottom: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+  .section h2 { margin-top: 0; color: #fff; font-size: 18px; border-bottom: 1px solid #222; padding-bottom: 12px; }
+  .btn { background: #2563eb; color: #fff; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px; transition: 0.2s; text-decoration: none; display: inline-block; }
+  .btn:hover { background: #1d4ed8; }
+  .btn-danger { background: #dc2626; }
+  .btn-danger:hover { background: #b91c1c; }
+  .btn-success { background: #16a34a; }
+  .btn-success:hover { background: #15803d; }
+  input, select, textarea { background: #18181b; border: 1px solid #3f3f46; color: #fff; padding: 10px 14px; border-radius: 6px; width: 100%; margin-top: 6px; margin-bottom: 15px; font-size: 14px; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: #3b82f6; }
+  label { font-size: 13px; color: #a1a1aa; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+  th, td { padding: 12px; text-align: left; border-bottom: 1px solid #222; font-size: 14px; }
+  th { color: #888; font-weight: 600; }
+  pre { background: #18181b; padding: 15px; border-radius: 6px; border: 1px solid #3f3f46; color: #4ade80; overflow-x: auto; font-family: monospace; }
+  .alert { padding: 12px; background: rgba(22, 163, 74, 0.2); border: 1px solid #16a34a; color: #4ade80; border-radius: 6px; margin-bottom: 20px; display: none; }
+`;
+
+// Şifre ile Giriş Rotaları (Siyah Tema)
 app.get("/login", (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -220,20 +254,21 @@ app.get("/login", (req, res) => {
       <meta charset="UTF-8">
       <title>Giriş Yap — Vazgucxn Bot</title>
       <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #070d1b; color: #fff; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        .card { background: #0b1a3a; padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); text-align: center; border: 1px solid #1a3668; max-width: 400px; width: 100%; }
-        h1 { margin-bottom: 10px; color: #60a5fa; font-size: 24px; }
-        p { color: #94a3b8; font-size: 14px; margin-bottom: 25px; }
-        input { background: #050b14; border: 1px solid #334155; color: #fff; padding: 12px; border-radius: 6px; width: 100%; margin-bottom: 20px; font-size: 14px; box-sizing: border-box; }
-        .btn { display: inline-block; background: #5865F2; color: #fff; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-weight: 600; transition: 0.2s; box-shadow: 0 4px 12px rgba(88,101,242,0.4); width: 100%; border: none; cursor: pointer; font-size: 14px; }
-        .btn:hover { background: #4752C4; transform: translateY(-2px); }
-        .error { color: #ef4444; font-size: 13px; margin-bottom: 15px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a0a0a; color: #fff; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        .card { background: #121212; padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); text-align: center; border: 1px solid #222; max-width: 400px; width: 100%; }
+        h1 { margin-bottom: 10px; color: #fff; font-size: 22px; }
+        p { color: #888; font-size: 14px; margin-bottom: 25px; }
+        input { background: #18181b; border: 1px solid #3f3f46; color: #fff; padding: 12px; border-radius: 6px; width: 100%; margin-bottom: 20px; font-size: 14px; box-sizing: border-box; }
+        input:focus { outline: none; border-color: #3b82f6; }
+        .btn { display: inline-block; background: #3b82f6; color: #fff; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-weight: 600; transition: 0.2s; width: 100%; border: none; cursor: pointer; font-size: 14px; }
+        .btn:hover { background: #2563eb; }
+        .error { color: #f87171; font-size: 13px; margin-bottom: 15px; background: rgba(248,113,113,0.1); padding: 8px; border-radius: 4px; border: 1px solid #f87171; }
       </style>
     </head>
     <body>
       <div class="card">
         <h1>Yönetim Paneli Girişi</h1>
-        <p>Lütfen panele erişmek için şifrenizi girin.</p>
+        <p>Lütfen devam etmek için şifrenizi girin.</p>
         ${req.query.error ? '<div class="error">❌ Hatalı şifre, tekrar deneyin.</div>' : ''}
         <form action="/login" method="POST">
           <input type="password" name="password" placeholder="Şifre..." required />
@@ -259,7 +294,7 @@ app.get("/logout", (req, res) => {
   res.redirect("/login");
 });
 
-// Modern Web Panel Arayüzü (HTML / CSS / JS)
+// Modern Siyah Temalı Web Panelleri
 app.get("/", (req, res) => {
   res.redirect("/panel");
 });
@@ -288,24 +323,7 @@ app.get("/panel", checkAuth, async (req, res) => {
     <head>
       <meta charset="UTF-8">
       <title>Yönetim Paneli — Vazgucxn Bot</title>
-      <style>
-        * { box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #050b14; color: #e2e8f0; margin: 0; padding: 0; display: flex; }
-        sidebar { width: 260px; background: #0b1a3a; height: 100vh; position: fixed; padding: 25px 20px; border-right: 1px solid #1a3668; display: flex; flex-direction: column; }
-        sidebar h2 { font-size: 18px; color: #60a5fa; margin-top: 0; margin-bottom: 30px; letter-spacing: 0.5px; }
-        sidebar a { color: #94a3b8; text-decoration: none; padding: 10px 14px; border-radius: 6px; margin-bottom: 6px; display: block; font-weight: 500; transition: 0.2s; }
-        sidebar a:hover, sidebar a.active { background: #1e3a8a; color: #fff; }
-        .main { margin-left: 260px; padding: 40px; width: calc(100% - 260px); max-width: 1400px; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 35px; border-bottom: 1px solid #1e293b; padding-bottom: 20px; }
-        .header h1 { margin: 0; font-size: 24px; color: #f8fafc; }
-        .user-badge { background: #0f172a; padding: 8px 16px; border-radius: 20px; border: 1px solid #334155; font-size: 14px; }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 35px; }
-        .stat-card { background: #0b1a3a; padding: 22px; border-radius: 10px; border: 1px solid #1a3668; }
-        .stat-card h3 { margin: 0 0 10px 0; font-size: 14px; color: #94a3b8; text-transform: uppercase; }
-        .stat-card .val { font-size: 26px; font-weight: bold; color: #60a5fa; }
-        .section { background: #0b1a3a; padding: 25px; border-radius: 10px; border: 1px solid #1a3668; margin-bottom: 30px; }
-        .section h2 { margin-top: 0; color: #60a5fa; font-size: 18px; border-bottom: 1px solid #1e3a8a; padding-bottom: 10px; }
-      </style>
+      <style>${blackThemeCSS}</style>
     </head>
     <body>
       <sidebar>
@@ -314,7 +332,7 @@ app.get("/panel", checkAuth, async (req, res) => {
         <a href="/panel/moderation">🔨 Moderasyon</a>
         <a href="/panel/voice">🎧 Ses Kontrolü</a>
         <a href="/panel/fivem">🎮 FiveM Sorgu & Tag</a>
-        <a href="/logout" style="margin-top:auto; color:#ef4444;">🚪 Çıkış Yap</a>
+        <a href="/logout" style="margin-top:auto; color:#f87171;">🚪 Çıkış Yap</a>
       </sidebar>
 
       <div class="main">
@@ -338,13 +356,13 @@ app.get("/panel", checkAuth, async (req, res) => {
           </div>
           <div class="stat-card">
             <h3>Guard Durumu</h3>
-            <div class="val" style="color:#10b981;">AKTİF</div>
+            <div class="val" style="color:#4ade80;">AKTİF</div>
           </div>
         </div>
 
         <div class="section">
           <h2>⚡ Hızlı Bot Durumu & Bilgi</h2>
-          <p>Bot sistemsel olarak aktif çalışmaktadır. Sol menüden ses kanallarındaki üyeleri sağırlaştırabilir, muteleyebilir, kick/ban atabilir veya FiveM ID & Tag sorgulaması yapabilirsiniz.</p>
+          <p style="color: #a1a1aa; line-height: 1.6;">Bot sistemsel olarak aktif çalışmaktadır. Sol menüden ses kanallarındaki üyeleri sağırlaştırabilir, muteleyebilir, kick/ban atabilir veya FiveM ID & Tag sorgulaması yapabilirsiniz.</p>
         </div>
       </div>
     </body>
@@ -352,7 +370,7 @@ app.get("/panel", checkAuth, async (req, res) => {
   `);
 });
 
-// Moderasyon Sayfası (Ban, Kick, vb.)
+// Moderasyon Sayfası (Siyah Tema)
 app.get("/panel/moderation", checkAuth, async (req, res) => {
   const guild = client.guilds.cache.first();
   let members = [];
@@ -369,26 +387,7 @@ app.get("/panel/moderation", checkAuth, async (req, res) => {
     <head>
       <meta charset="UTF-8">
       <title>Moderasyon — Vazgucxn Panel</title>
-      <style>
-        * { box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #050b14; color: #e2e8f0; margin: 0; padding: 0; display: flex; }
-        sidebar { width: 260px; background: #0b1a3a; height: 100vh; position: fixed; padding: 25px 20px; border-right: 1px solid #1a3668; display: flex; flex-direction: column; }
-        sidebar h2 { font-size: 18px; color: #60a5fa; margin-top: 0; margin-bottom: 30px; }
-        sidebar a { color: #94a3b8; text-decoration: none; padding: 10px 14px; border-radius: 6px; margin-bottom: 6px; display: block; font-weight: 500; transition: 0.2s; }
-        sidebar a:hover, sidebar a.active { background: #1e3a8a; color: #fff; }
-        .main { margin-left: 260px; padding: 40px; width: calc(100% - 260px); max-width: 1400px; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 35px; border-bottom: 1px solid #1e293b; padding-bottom: 20px; }
-        .header h1 { margin: 0; font-size: 24px; color: #f8fafc; }
-        .section { background: #0b1a3a; padding: 25px; border-radius: 10px; border: 1px solid #1a3668; margin-bottom: 30px; }
-        .section h2 { margin-top: 0; color: #60a5fa; font-size: 18px; border-bottom: 1px solid #1e3a8a; padding-bottom: 10px; }
-        .btn { background: #3b82f6; color: #fff; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px; transition: 0.2s; }
-        .btn:hover { background: #2563eb; }
-        .btn-danger { background: #ef4444; }
-        .btn-danger:hover { background: #dc2626; }
-        input, select, textarea { background: #050b14; border: 1px solid #334155; color: #fff; padding: 10px 14px; border-radius: 6px; width: 100%; margin-top: 6px; margin-bottom: 15px; font-size: 14px; }
-        label { font-size: 13px; color: #94a3b8; font-weight: 600; }
-        .alert { padding: 12px; background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; color: #34d399; border-radius: 6px; margin-bottom: 20px; display: none; }
-      </style>
+      <style>${blackThemeCSS}</style>
     </head>
     <body>
       <sidebar>
@@ -397,7 +396,7 @@ app.get("/panel/moderation", checkAuth, async (req, res) => {
         <a href="/panel/moderation" class="active">🔨 Moderasyon</a>
         <a href="/panel/voice">🎧 Ses Kontrolü</a>
         <a href="/panel/fivem">🎮 FiveM Sorgu & Tag</a>
-        <a href="/logout" style="margin-top:auto; color:#ef4444;">🚪 Çıkış Yap</a>
+        <a href="/logout" style="margin-top:auto; color:#f87171;">🚪 Çıkış Yap</a>
       </sidebar>
 
       <div class="main">
@@ -431,7 +430,7 @@ app.get("/panel/moderation", checkAuth, async (req, res) => {
             </select>
             <label>Sebep</label>
             <input type="text" name="reason" placeholder="Kick sebebi..." />
-            <button type="submit" class="btn" style="background:#f59e0b;">Üyeyi At</button>
+            <button type="submit" class="btn" style="background:#d97706;">Üyeyi At</button>
           </form>
         </div>
       </div>
@@ -468,7 +467,7 @@ app.get("/panel/moderation", checkAuth, async (req, res) => {
   `);
 });
 
-// Ses Kontrolü Sayfası
+// Ses Kontrolü Sayfası (Siyah Tema)
 app.get("/panel/voice", checkAuth, async (req, res) => {
   const guild = client.guilds.cache.first();
   let voiceChannels = [];
@@ -494,28 +493,7 @@ app.get("/panel/voice", checkAuth, async (req, res) => {
     <head>
       <meta charset="UTF-8">
       <title>Ses Kontrolü — Vazgucxn Panel</title>
-      <style>
-        * { box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #050b14; color: #e2e8f0; margin: 0; padding: 0; display: flex; }
-        sidebar { width: 260px; background: #0b1a3a; height: 100vh; position: fixed; padding: 25px 20px; border-right: 1px solid #1a3668; display: flex; flex-direction: column; }
-        sidebar h2 { font-size: 18px; color: #60a5fa; margin-top: 0; margin-bottom: 30px; }
-        sidebar a { color: #94a3b8; text-decoration: none; padding: 10px 14px; border-radius: 6px; margin-bottom: 6px; display: block; font-weight: 500; transition: 0.2s; }
-        sidebar a:hover, sidebar a.active { background: #1e3a8a; color: #fff; }
-        .main { margin-left: 260px; padding: 40px; width: calc(100% - 260px); max-width: 1400px; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 35px; border-bottom: 1px solid #1e293b; padding-bottom: 20px; }
-        .header h1 { margin: 0; font-size: 24px; color: #f8fafc; }
-        .section { background: #0b1a3a; padding: 25px; border-radius: 10px; border: 1px solid #1a3668; margin-bottom: 30px; }
-        .section h2 { margin-top: 0; color: #60a5fa; font-size: 18px; border-bottom: 1px solid #1e3a8a; padding-bottom: 10px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #1e293b; font-size: 14px; }
-        th { color: #94a3b8; }
-        .btn { background: #3b82f6; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 12px; transition: 0.2s; text-decoration: none; display: inline-block; margin-right: 4px; }
-        .btn:hover { background: #2563eb; }
-        .btn-danger { background: #ef4444; }
-        .btn-danger:hover { background: #dc2626; }
-        .btn-success { background: #10b981; }
-        .btn-success:hover { background: #059669; }
-      </style>
+      <style>${blackThemeCSS}</style>
     </head>
     <body>
       <sidebar>
@@ -524,7 +502,7 @@ app.get("/panel/voice", checkAuth, async (req, res) => {
         <a href="/panel/moderation">🔨 Moderasyon</a>
         <a href="/panel/voice" class="active">🎧 Ses Kontrolü</a>
         <a href="/panel/fivem">🎮 FiveM Sorgu & Tag</a>
-        <a href="/logout" style="margin-top:auto; color:#ef4444;">🚪 Çıkış Yap</a>
+        <a href="/logout" style="margin-top:auto; color:#f87171;">🚪 Çıkış Yap</a>
       </sidebar>
 
       <div class="main">
@@ -534,9 +512,9 @@ app.get("/panel/voice", checkAuth, async (req, res) => {
 
         <div class="section">
           <h2>🔊 Ses Kanallarındaki Aktif Üyeler</h2>
-          ${voiceChannels.length === 0 ? '<p>Aktif ses kanalında kimse bulunmuyor.</p>' : voiceChannels.map(vc => `
-            <h3 style="color:#60a5fa; margin-top:20px;">📁 ${vc.name} (${vc.members.length} kişi)</h3>
-            ${vc.members.length === 0 ? '<p style="color:#94a3b8; font-size:13px;">Boş kanal</p>' : `
+          ${voiceChannels.length === 0 ? '<p style="color:#888;">Aktif ses kanalında kimse bulunmuyor.</p>' : voiceChannels.map(vc => `
+            <h3 style="color:#fff; margin-top:20px; border-bottom:1px solid #222; padding-bottom:6px;">📁 ${vc.name} (${vc.members.length} kişi)</h3>
+            ${vc.members.length === 0 ? '<p style="color:#888; font-size:13px;">Boş kanal</p>' : `
               <table>
                 <thead>
                   <tr>
@@ -548,14 +526,14 @@ app.get("/panel/voice", checkAuth, async (req, res) => {
                 <tbody>
                   ${vc.members.map(m => `
                     <tr>
-                      <td>${m.tag} <code style="color:#94a3b8;">(${m.id})</code></td>
+                      <td>${m.tag} <code style="color:#888;">(${m.id})</code></td>
                       <td>${m.mute ? '🔴 Mute' : '🟢 Sesli'} | ${m.deaf ? '🔇 Sağır' : '🔊 Duyuyor'}</td>
                       <td>
-                        <button class="btn btn-danger" onclick="voiceAction('${m.id}', 'mute')">Mutele</button>
-                        <button class="btn btn-success" onclick="voiceAction('${m.id}', 'unmute')">Mute Aç</button>
-                        <button class="btn btn-danger" onclick="voiceAction('${m.id}', 'deaf')">Sağırlaştır</button>
-                        <button class="btn btn-success" onclick="voiceAction('${m.id}', 'undeaf')">Sağır Aç</button>
-                        <button class="btn" style="background:#f59e0b;" onclick="voiceAction('${m.id}', 'disconnect')">Sesten At</button>
+                        <button class="btn btn-danger" style="padding:6px 10px; font-size:12px;" onclick="voiceAction('${m.id}', 'mute')">Mutele</button>
+                        <button class="btn btn-success" style="padding:6px 10px; font-size:12px;" onclick="voiceAction('${m.id}', 'unmute')">Mute Aç</button>
+                        <button class="btn btn-danger" style="padding:6px 10px; font-size:12px;" onclick="voiceAction('${m.id}', 'deaf')">Sağırlaştır</button>
+                        <button class="btn btn-success" style="padding:6px 10px; font-size:12px;" onclick="voiceAction('${m.id}', 'undeaf')">Sağır Aç</button>
+                        <button class="btn" style="background:#d97706; padding:6px 10px; font-size:12px;" onclick="voiceAction('${m.id}', 'disconnect')">Sesten At</button>
                       </td>
                     </tr>
                   `).join("")}
@@ -583,7 +561,7 @@ app.get("/panel/voice", checkAuth, async (req, res) => {
   `);
 });
 
-// FiveM Sorgu & Tag Sayfası
+// FiveM Sorgu & Tag Sayfası (Siyah Tema)
 app.get("/panel/fivem", checkAuth, async (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -591,24 +569,7 @@ app.get("/panel/fivem", checkAuth, async (req, res) => {
     <head>
       <meta charset="UTF-8">
       <title>FiveM Sorgu — Vazgucxn Panel</title>
-      <style>
-        * { box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #050b14; color: #e2e8f0; margin: 0; padding: 0; display: flex; }
-        sidebar { width: 260px; background: #0b1a3a; height: 100vh; position: fixed; padding: 25px 20px; border-right: 1px solid #1a3668; display: flex; flex-direction: column; }
-        sidebar h2 { font-size: 18px; color: #60a5fa; margin-top: 0; margin-bottom: 30px; }
-        sidebar a { color: #94a3b8; text-decoration: none; padding: 10px 14px; border-radius: 6px; margin-bottom: 6px; display: block; font-weight: 500; transition: 0.2s; }
-        sidebar a:hover, sidebar a.active { background: #1e3a8a; color: #fff; }
-        .main { margin-left: 260px; padding: 40px; width: calc(100% - 260px); max-width: 1400px; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 35px; border-bottom: 1px solid #1e293b; padding-bottom: 20px; }
-        .header h1 { margin: 0; font-size: 24px; color: #f8fafc; }
-        .section { background: #0b1a3a; padding: 25px; border-radius: 10px; border: 1px solid #1a3668; margin-bottom: 30px; }
-        .section h2 { margin-top: 0; color: #60a5fa; font-size: 18px; border-bottom: 1px solid #1e3a8a; padding-bottom: 10px; }
-        .btn { background: #3b82f6; color: #fff; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px; transition: 0.2s; }
-        .btn:hover { background: #2563eb; }
-        input { background: #050b14; border: 1px solid #334155; color: #fff; padding: 10px 14px; border-radius: 6px; width: 100%; margin-top: 6px; margin-bottom: 15px; font-size: 14px; }
-        label { font-size: 13px; color: #94a3b8; font-weight: 600; }
-        pre { background: #050b14; padding: 15px; border-radius: 6px; border: 1px solid #334155; color: #34d399; overflow-x: auto; font-family: monospace; }
-      </style>
+      <style>${blackThemeCSS}</style>
     </head>
     <body>
       <sidebar>
@@ -617,7 +578,7 @@ app.get("/panel/fivem", checkAuth, async (req, res) => {
         <a href="/panel/moderation">🔨 Moderasyon</a>
         <a href="/panel/voice">🎧 Ses Kontrolü</a>
         <a href="/panel/fivem" class="active">🎮 FiveM Sorgu & Tag</a>
-        <a href="/logout" style="margin-top:auto; color:#ef4444;">🚪 Çıkış Yap</a>
+        <a href="/logout" style="margin-top:auto; color:#f87171;">🚪 Çıkış Yap</a>
       </sidebar>
 
       <div class="main">

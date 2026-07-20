@@ -26,7 +26,8 @@ const {
   SlashCommandBuilder,
   Events,
   REST,
-  Routes
+  Routes,
+  AttachmentBuilder
 } = require("discord.js");
 
 // ===================== FETCH (Node 18+ global) fallback =====================
@@ -181,7 +182,8 @@ const client = new Client({
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildBans,
-    GatewayIntentBits.GuildVoiceStates
+    GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.MessageContent
   ],
   partials: [Partials.Channel]
 });
@@ -215,7 +217,7 @@ function checkAuth(req, res, next) {
 const blackThemeCSS = `
   * { box-sizing: border-box; }
   body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a0a0a; color: #e0e0e0; margin: 0; padding: 0; display: flex; }
-  sidebar { width: 260px; background: #121212; height: 100vh; position: fixed; padding: 25px 20px; border-right: 1px solid #222; display: flex; flex-direction: column; }
+  sidebar { width: 260px; background: #121212; height: 100vh; position: fixed; padding: 25px 20px; border-right: 1px solid #222; display: flex; flex-direction: column; overflow-y: auto; }
   sidebar h2 { font-size: 18px; color: #fff; margin-top: 0; margin-bottom: 30px; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
   sidebar a { color: #a0a0a0; text-decoration: none; padding: 12px 14px; border-radius: 6px; margin-bottom: 6px; display: block; font-weight: 500; transition: 0.2s; }
   sidebar a:hover, sidebar a.active { background: #1e1e1e; color: #fff; border-left: 3px solid #3b82f6; }
@@ -329,8 +331,10 @@ app.get("/panel", checkAuth, async (req, res) => {
       <sidebar>
         <h2>🛡️ Vazgucxn Panel</h2>
         <a href="/panel" class="active">📊 Genel Bakış</a>
-        <a href="/panel/moderation">🔨 Moderasyon</a>
+        <a href="/panel/moderation">🔨 Moderasyon & ID İşlemleri</a>
         <a href="/panel/voice">🎧 Ses Kontrolü</a>
+        <a href="/panel/whitelist">🛡️ Whitelist Yönetimi</a>
+        <a href="/panel/staff">👑 Yetkili Yönetimi</a>
         <a href="/panel/fivem">🎮 FiveM Sorgu & Tag</a>
         <a href="/logout" style="margin-top:auto; color:#f87171;">🚪 Çıkış Yap</a>
       </sidebar>
@@ -362,7 +366,7 @@ app.get("/panel", checkAuth, async (req, res) => {
 
         <div class="section">
           <h2>⚡ Hızlı Bot Durumu & Bilgi</h2>
-          <p style="color: #a1a1aa; line-height: 1.6;">Bot sistemsel olarak aktif çalışmaktadır. Sol menüden ses kanallarındaki üyeleri sağırlaştırabilir, muteleyebilir, kick/ban atabilir veya FiveM ID & Tag sorgulaması yapabilirsiniz.</p>
+          <p style="color: #a1a1aa; line-height: 1.6;">Bot sistemsel olarak aktif çalışmaktadır. Sol menüden ses kanallarındaki üyeleri yönetebilir, Whitelist ve Yetkili listelerini güncelleyebilir, ID girerek ban/kick atabilirsiniz.</p>
         </div>
       </div>
     </body>
@@ -370,7 +374,7 @@ app.get("/panel", checkAuth, async (req, res) => {
   `);
 });
 
-// Moderasyon Sayfası (Siyah Tema)
+// Moderasyon & ID ile Ban/Kick Sayfası
 app.get("/panel/moderation", checkAuth, async (req, res) => {
   const guild = client.guilds.cache.first();
   let members = [];
@@ -393,27 +397,29 @@ app.get("/panel/moderation", checkAuth, async (req, res) => {
       <sidebar>
         <h2>🛡️ Vazgucxn Panel</h2>
         <a href="/panel">📊 Genel Bakış</a>
-        <a href="/panel/moderation" class="active">🔨 Moderasyon</a>
+        <a href="/panel/moderation" class="active">🔨 Moderasyon & ID İşlemleri</a>
         <a href="/panel/voice">🎧 Ses Kontrolü</a>
+        <a href="/panel/whitelist">🛡️ Whitelist Yönetimi</a>
+        <a href="/panel/staff">👑 Yetkili Yönetimi</a>
         <a href="/panel/fivem">🎮 FiveM Sorgu & Tag</a>
         <a href="/logout" style="margin-top:auto; color:#f87171;">🚪 Çıkış Yap</a>
       </sidebar>
 
       <div class="main">
         <div class="header">
-          <h1>Moderasyon İşlemleri (Ban / Kick)</h1>
+          <h1>Moderasyon İşlemleri (ID ile Ban / Kick)</h1>
         </div>
-
-        <div id="alertBox" class="alert">İşlem başarıyla gerçekleştirildi.</div>
 
         <div class="section">
           <h2>🔨 Üye Yasakla (Ban)</h2>
           <form id="banForm">
-            <label>Kullanıcı Seçin</label>
-            <select name="userId" required>
-              <option value="">Seçiniz...</option>
+            <label>Kullanıcı Seç veya ID Gir</label>
+            <select name="userIdSelect" onchange="document.getElementById('banUserId').value=this.value">
+              <option value="">Listeden Seçiniz...</option>
               ${members.map(m => `<option value="${m.id}">${m.tag} (${m.id})</option>`).join("")}
             </select>
+            <label style="margin-top:10px; display:block;">Manuel Discord ID Girin:</label>
+            <input type="text" id="banUserId" name="userId" placeholder="Örn: 827905938923978823" required />
             <label>Sebep</label>
             <input type="text" name="reason" placeholder="Ban sebebi..." />
             <button type="submit" class="btn btn-danger">Üyeyi Banla</button>
@@ -423,11 +429,13 @@ app.get("/panel/moderation", checkAuth, async (req, res) => {
         <div class="section">
           <h2>👢 Üye Sunucudan At (Kick)</h2>
           <form id="kickForm">
-            <label>Kullanıcı Seçin</label>
-            <select name="userId" required>
-              <option value="">Seçiniz...</option>
+            <label>Kullanıcı Seç veya ID Gir</label>
+            <select name="userIdSelect" onchange="document.getElementById('kickUserId').value=this.value">
+              <option value="">Listeden Seçiniz...</option>
               ${members.map(m => `<option value="${m.id}">${m.tag} (${m.id})</option>`).join("")}
             </select>
+            <label style="margin-top:10px; display:block;">Manuel Discord ID Girin:</label>
+            <input type="text" id="kickUserId" name="userId" placeholder="Örn: 827905938923978823" required />
             <label>Sebep</label>
             <input type="text" name="reason" placeholder="Kick sebebi..." />
             <button type="submit" class="btn" style="background:#d97706;">Üyeyi At</button>
@@ -467,13 +475,14 @@ app.get("/panel/moderation", checkAuth, async (req, res) => {
   `);
 });
 
-// Ses Kontrolü Sayfası (Siyah Tema)
+// Ses Kontrolü Sayfası (Sestekilerin gözükmeme sorununa karşı zorlamalı cache fetch eklendi)
 app.get("/panel/voice", checkAuth, async (req, res) => {
   const guild = client.guilds.cache.first();
   let voiceChannels = [];
   if (guild) {
     try {
       await guild.members.fetch();
+      await guild.channels.fetch();
       voiceChannels = guild.channels.cache.filter(c => c.isVoiceBased()).map(c => ({
         id: c.id,
         name: c.name,
@@ -499,8 +508,10 @@ app.get("/panel/voice", checkAuth, async (req, res) => {
       <sidebar>
         <h2>🛡️ Vazgucxn Panel</h2>
         <a href="/panel">📊 Genel Bakış</a>
-        <a href="/panel/moderation">🔨 Moderasyon</a>
+        <a href="/panel/moderation">🔨 Moderasyon & ID İşlemleri</a>
         <a href="/panel/voice" class="active">🎧 Ses Kontrolü</a>
+        <a href="/panel/whitelist">🛡️ Whitelist Yönetimi</a>
+        <a href="/panel/staff">👑 Yetkili Yönetimi</a>
         <a href="/panel/fivem">🎮 FiveM Sorgu & Tag</a>
         <a href="/logout" style="margin-top:auto; color:#f87171;">🚪 Çıkış Yap</a>
       </sidebar>
@@ -561,6 +572,212 @@ app.get("/panel/voice", checkAuth, async (req, res) => {
   `);
 });
 
+// Whitelist Yönetim Paneli
+app.get("/panel/whitelist", checkAuth, async (req, res) => {
+  const guild = client.guilds.cache.first();
+  let members = [];
+  if (guild) {
+    try {
+      await guild.members.fetch();
+      members = guild.members.cache.filter(m => !m.user.bot).map(m => ({ id: m.id, tag: m.user.tag }));
+    } catch {}
+  }
+  const wlArray = Array.from(whitelist);
+
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="tr">
+    <head>
+      <meta charset="UTF-8">
+      <title>Whitelist Yönetimi — Vazgucxn Panel</title>
+      <style>${blackThemeCSS}</style>
+    </head>
+    <body>
+      <sidebar>
+        <h2>🛡️ Vazgucxn Panel</h2>
+        <a href="/panel">📊 Genel Bakış</a>
+        <a href="/panel/moderation">🔨 Moderasyon & ID İşlemleri</a>
+        <a href="/panel/voice">🎧 Ses Kontrolü</a>
+        <a href="/panel/whitelist" class="active">🛡️ Whitelist Yönetimi</a>
+        <a href="/panel/staff">👑 Yetkili Yönetimi</a>
+        <a href="/panel/fivem">🎮 FiveM Sorgu & Tag</a>
+        <a href="/logout" style="margin-top:auto; color:#f87171;">🚪 Çıkış Yap</a>
+      </sidebar>
+
+      <div class="main">
+        <div class="header">
+          <h1>Guard Whitelist Yönetimi</h1>
+        </div>
+
+        <div class="section">
+          <h2>➕ Whitelist'e Kullanıcı Ekle</h2>
+          <form id="addWlForm">
+            <label>Üye Seç veya ID Gir</label>
+            <select name="userIdSelect" onchange="document.getElementById('wlUserId').value=this.value">
+              <option value="">Listeden Seçiniz...</option>
+              ${members.map(m => `<option value="${m.id}">${m.tag} (${m.id})</option>`).join("")}
+            </select>
+            <label style="margin-top:10px; display:block;">Manuel Discord ID:</label>
+            <input type="text" id="wlUserId" name="userId" placeholder="Örn: 827905938923978823" required />
+            <button type="submit" class="btn btn-success">Whitelist'e Ekle</button>
+          </form>
+        </div>
+
+        <div class="section">
+          <h2>📋 Mevcut Whitelist Listesi</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Kullanıcı ID</th>
+                <th>İşlemler</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${wlArray.length === 0 ? '<tr><td colspan="2" style="color:#888;">Whitelist boş.</td></tr>' : wlArray.map(id => `
+                <tr>
+                  <td><code>${id}</code></td>
+                  <td><button class="btn btn-danger" style="padding:6px 12px; font-size:12px;" onclick="removeWl('${id}')">Kaldır</button></td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <script>
+        document.getElementById('addWlForm').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const userId = document.getElementById('wlUserId').value;
+          const res = await fetch('/api/whitelist/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId })
+          });
+          const data = await res.json();
+          alert(data.message || 'İşlem tamamlandı.');
+          location.reload();
+        });
+
+        async function removeWl(userId) {
+          if (!confirm('Bu kullanıcıyı whitelistten kaldırmak istediğinize emin misiniz?')) return;
+          const res = await fetch('/api/whitelist/remove', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId })
+          });
+          const data = await res.json();
+          alert(data.message || 'İşlem tamamlandı.');
+          location.reload();
+        }
+      </script>
+    </body>
+    </html>
+  `);
+});
+
+// Yetkili (Staff) Yönetim Paneli
+app.get("/panel/staff", checkAuth, async (req, res) => {
+  const guild = client.guilds.cache.first();
+  let members = [];
+  if (guild) {
+    try {
+      await guild.members.fetch();
+      members = guild.members.cache.filter(m => !m.user.bot).map(m => ({ id: m.id, tag: m.user.tag }));
+    } catch {}
+  }
+  const staffArray = Array.from(staffIds);
+
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="tr">
+    <head>
+      <meta charset="UTF-8">
+      <title>Yetkili Yönetimi — Vazgucxn Panel</title>
+      <style>${blackThemeCSS}</style>
+    </head>
+    <body>
+      <sidebar>
+        <h2>🛡️ Vazgucxn Panel</h2>
+        <a href="/panel">📊 Genel Bakış</a>
+        <a href="/panel/moderation">🔨 Moderasyon & ID İşlemleri</a>
+        <a href="/panel/voice">🎧 Ses Kontrolü</a>
+        <a href="/panel/whitelist">🛡️ Whitelist Yönetimi</a>
+        <a href="/panel/staff" class="active">👑 Yetkili Yönetimi</a>
+        <a href="/panel/fivem">🎮 FiveM Sorgu & Tag</a>
+        <a href="/logout" style="margin-top:auto; color:#f87171;">🚪 Çıkış Yap</a>
+      </sidebar>
+
+      <div class="main">
+        <div class="header">
+          <h1>Bot Yetkilileri (Staff) Yönetimi</h1>
+        </div>
+
+        <div class="section">
+          <h2>➕ Yeni Yetkili Ekle</h2>
+          <form id="addStaffForm">
+            <label>Üye Seç veya ID Gir</label>
+            <select name="userIdSelect" onchange="document.getElementById('staffUserId').value=this.value">
+              <option value="">Listeden Seçiniz...</option>
+              ${members.map(m => `<option value="${m.id}">${m.tag} (${m.id})</option>`).join("")}
+            </select>
+            <label style="margin-top:10px; display:block;">Manuel Discord ID:</label>
+            <input type="text" id="staffUserId" name="userId" placeholder="Örn: 827905938923978823" required />
+            <button type="submit" class="btn btn-success">Yetkili Ekle</button>
+          </form>
+        </div>
+
+        <div class="section">
+          <h2>📋 Mevcut Yetkililer</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Kullanıcı ID</th>
+                <th>İşlemler</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${staffArray.length === 0 ? '<tr><td colspan="2" style="color:#888;">Yetkili listesi boş.</td></tr>' : staffArray.map(id => `
+                <tr>
+                  <td><code>${id}</code></td>
+                  <td><button class="btn btn-danger" style="padding:6px 12px; font-size:12px;" onclick="removeStaff('${id}')">Yetkisini Al</button></td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <script>
+        document.getElementById('addStaffForm').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const userId = document.getElementById('staffUserId').value;
+          const res = await fetch('/api/staff/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId })
+          });
+          const data = await res.json();
+          alert(data.message || 'İşlem tamamlandı.');
+          location.reload();
+        });
+
+        async function removeStaff(userId) {
+          if (!confirm('Bu kullanıcının yetkisini kaldırmak istediğinize emin misiniz?')) return;
+          const res = await fetch('/api/staff/remove', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId })
+          });
+          const data = await res.json();
+          alert(data.message || 'İşlem tamamlandı.');
+          location.reload();
+        }
+      </script>
+    </body>
+    </html>
+  `);
+});
+
 // FiveM Sorgu & Tag Sayfası (Siyah Tema)
 app.get("/panel/fivem", checkAuth, async (req, res) => {
   res.send(`
@@ -575,8 +792,10 @@ app.get("/panel/fivem", checkAuth, async (req, res) => {
       <sidebar>
         <h2>🛡️ Vazgucxn Panel</h2>
         <a href="/panel">📊 Genel Bakış</a>
-        <a href="/panel/moderation">🔨 Moderasyon</a>
+        <a href="/panel/moderation">🔨 Moderasyon & ID İşlemleri</a>
         <a href="/panel/voice">🎧 Ses Kontrolü</a>
+        <a href="/panel/whitelist">🛡️ Whitelist Yönetimi</a>
+        <a href="/panel/staff">👑 Yetkili Yönetimi</a>
         <a href="/panel/fivem" class="active">🎮 FiveM Sorgu & Tag</a>
         <a href="/logout" style="margin-top:auto; color:#f87171;">🚪 Çıkış Yap</a>
       </sidebar>
@@ -629,7 +848,7 @@ app.get("/panel/fivem", checkAuth, async (req, res) => {
   `);
 });
 
-// Panel API Endpoints (Ban, Kick, Voice Mute/Deaf, FiveM)
+// Panel API Endpoints (Ban, Kick, Voice Mute/Deaf, Whitelist, Staff, FiveM)
 app.post("/api/action/ban", checkAuth, async (req, res) => {
   const { userId, reason } = req.body;
   const guild = client.guilds.cache.first();
@@ -673,6 +892,38 @@ app.post("/api/action/voice", checkAuth, async (req, res) => {
   } catch (e) {
     res.json({ success: false, message: e.message });
   }
+});
+
+app.post("/api/whitelist/add", checkAuth, (req, res) => {
+  const { userId } = req.body;
+  if (!userId) return res.json({ success: false, message: "ID belirtilmedi." });
+  whitelist.add(userId.trim());
+  saveWhitelist();
+  res.json({ success: true, message: "Whitelist'e başarıyla eklendi." });
+});
+
+app.post("/api/whitelist/remove", checkAuth, (req, res) => {
+  const { userId } = req.body;
+  if (!userId) return res.json({ success: false, message: "ID belirtilmedi." });
+  whitelist.delete(userId.trim());
+  saveWhitelist();
+  res.json({ success: true, message: "Whitelist'ten kaldırıldı." });
+});
+
+app.post("/api/staff/add", checkAuth, (req, res) => {
+  const { userId } = req.body;
+  if (!userId) return res.json({ success: false, message: "ID belirtilmedi." });
+  staffIds.add(userId.trim());
+  saveStaff();
+  res.json({ success: true, message: "Yetkili olarak eklendi." });
+});
+
+app.post("/api/staff/remove", checkAuth, (req, res) => {
+  const { userId } = req.body;
+  if (!userId) return res.json({ success: false, message: "ID belirtilmedi." });
+  staffIds.delete(userId.trim());
+  saveStaff();
+  res.json({ success: true, message: "Yetki kaldırıldı." });
 });
 
 app.get("/api/fivem/id", checkAuth, async (req, res) => {
@@ -1000,7 +1251,7 @@ client.on("voiceStateUpdate", (oldState, newState) => {
   } catch {}
 });
 
-// ===================== TICKET SİSTEMİ =====================
+// ===================== TICKET SİSTEMİ & TRANSKRİPT =====================
 function isTicketOpen() {
   return (config.ticketDurum || "acik") === "acik";
 }
@@ -1070,7 +1321,7 @@ async function handleTicketOpen(interaction) {
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`basvuru_kabul_${interaction.user.id}`).setLabel("Kabul Et").setStyle(ButtonStyle.Success).setEmoji(EMOJI.success),
     new ButtonBuilder().setCustomId(`basvuru_reddet_${interaction.user.id}`).setLabel("Reddet").setStyle(ButtonStyle.Danger).setEmoji(EMOJI.warn),
-    new ButtonBuilder().setCustomId("ticket_close").setLabel("Kapat & Sil").setStyle(ButtonStyle.Secondary).setEmoji(EMOJI.lock)
+    new ButtonBuilder().setCustomId("ticket_close").setLabel("Kapat & Transkript Al").setStyle(ButtonStyle.Secondary).setEmoji(EMOJI.lock)
   );
 
   const basvuruFormu = `> **_Günde kaç saat aktif olabilirsin?:_**\n> **_Kaç yaşındasın?:_**\n> **_Oynadığın ekipler:_**\n> **_FiveM'de kaç saatin var?:_**\n> **_Gelişmiş map bilgin var mı?:_**\n> **_En az 5/10 adet kill POV (zorunlu):_**`;
@@ -1108,7 +1359,7 @@ async function handleBasvuruKarar(interaction, kabul) {
   const disabledRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId("basvuru_kabul_done").setLabel(kabul ? "Kabul Edildi" : "Kabul Et").setStyle(ButtonStyle.Success).setEmoji(EMOJI.success).setDisabled(true),
     new ButtonBuilder().setCustomId("basvuru_reddet_done").setLabel(kabul ? "Reddet" : "Reddedildi").setStyle(ButtonStyle.Danger).setEmoji(EMOJI.warn).setDisabled(true),
-    new ButtonBuilder().setCustomId("ticket_close").setLabel("Kapat & Sil").setStyle(ButtonStyle.Secondary).setEmoji(EMOJI.lock)
+    new ButtonBuilder().setCustomId("ticket_close").setLabel("Kapat & Transkript Al").setStyle(ButtonStyle.Secondary).setEmoji(EMOJI.lock)
   );
   await interaction.message.edit({ components: [disabledRow] }).catch(() => {});
 
@@ -1137,11 +1388,47 @@ async function handleBasvuruKarar(interaction, kabul) {
 
 async function handleTicketClose(interaction) {
   await interaction.deferReply({ flags: 64 });
-  const opener = ticketOwners.get(interaction.channel.id);
+  const guild = interaction.guild;
+  const channel = interaction.channel;
+  const opener = ticketOwners.get(channel.id);
   const admin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
   if (interaction.user.id !== opener && !admin && !isStaff(interaction.user.id)) return interaction.editReply("Yetkin yok.");
-  await interaction.channel.delete().catch(() => {});
-  ticketOwners.delete(interaction.channel.id);
+
+  try {
+    // Mesaj geçmişini çek ve transkript metni oluştur
+    const messages = await channel.messages.fetch({ limit: 100 });
+    const sorted = Array.from(messages.values()).reverse();
+    let transcriptContent = `=== TICKET TRANSKRİPTİ (${channel.name}) ===\nKapanış Tarihi: ${new Date().toLocaleString()}\nKapatan Yetkili: ${interaction.user.tag} (${interaction.user.id})\n\n`;
+    for (const m of sorted) {
+      transcriptContent += `[${new Date(m.createdTimestamp).toLocaleString()}] ${m.author.tag}: ${m.content || "[Medya / Ek]"}\n`;
+    }
+
+    const filePath = path.join(DATA_DIR, `transcript-${channel.name}-${Date.now()}.txt`);
+    fs.writeFileSync(filePath, transcriptContent, "utf8");
+    const attachment = new AttachmentBuilder(filePath);
+
+    // Ticket log kanalına gönder
+    const logChannelId = config.logs?.ticketLog || config.logChannelId;
+    if (logChannelId) {
+      const logCh = guild.channels.cache.get(logChannelId);
+      if (logCh) {
+        await logCh.send({
+          content: `📁 **${channel.name}** adlı ticket kapatıldı. Transkript dosyası aşağıdadır:`,
+          files: [attachment]
+        }).catch(() => {});
+      }
+    }
+
+    // Dosyayı kapatmadan hemen önce kullanıcıya dm veya log olarak sunabilmek için kanalı siliyoruz
+    setTimeout(() => {
+      try { fs.unlinkSync(filePath); } catch {}
+    }, 5000);
+  } catch (e) {
+    console.error("Transkript oluşturma hatası:", e);
+  }
+
+  ticketOwners.delete(channel.id);
+  await channel.delete().catch(() => {});
 }
 
 // ===================== SLASH KOMUTLARI =====================

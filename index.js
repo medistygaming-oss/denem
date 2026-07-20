@@ -3463,6 +3463,598 @@ client.on("roleUpdate", async (oldRole, newRole) => {
   }
 });
 
+const PANEL_HTML = `<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TeamCruz Yönetim Paneli</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; background:#0b1a3a; color:#e6e9f0; font-family:Segoe UI, Arial, sans-serif; }
+  #login { display:flex; align-items:center; justify-content:center; height:100vh; }
+  .card { background:#111f45; border:1px solid #22305e; border-radius:12px; padding:24px; box-shadow:0 4px 18px rgba(0,0,0,.3); }
+  #login .card { width:320px; text-align:center; }
+  input, select { width:100%; padding:10px; margin:8px 0; border-radius:8px; border:1px solid #2c3d70; background:#0e1c3f; color:#e6e9f0; }
+  button { cursor:pointer; padding:10px 16px; border:none; border-radius:8px; background:#3a5bd9; color:#fff; font-weight:600; margin:4px 4px 4px 0; }
+  button.danger { background:#d9433a; }
+  button.secondary { background:#2c3d70; }
+  h1,h2,h3 { margin-top:0; }
+  #app { display:none; }
+  header { display:flex; justify-content:space-between; align-items:center; padding:16px 24px; background:#0e1c3f; border-bottom:1px solid #22305e; }
+  nav { display:flex; gap:6px; padding:12px 24px; flex-wrap:wrap; background:#0e1c3f; }
+  nav button { background:#1a2a5c; }
+  nav button.active { background:#3a5bd9; }
+  main { padding:24px; max-width:1000px; margin:0 auto; }
+  .tab { display:none; }
+  .tab.active { display:block; }
+  table { width:100%; border-collapse:collapse; margin-top:12px; }
+  th, td { text-align:left; padding:8px; border-bottom:1px solid #22305e; font-size:14px; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  label { font-size:13px; color:#9fb0e0; display:block; margin-top:10px; }
+  .msg { margin-top:10px; font-size:13px; }
+  .msg.ok { color:#5ed17a; }
+  .msg.err { color:#ff6b6b; }
+  .toggle { display:inline-flex; align-items:center; gap:8px; margin:6px 0; }
+  @media (max-width:700px){ .grid{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="card">
+    <h2>🔒 Yönetim Paneli</h2>
+    <input id="pw" type="password" placeholder="Şifre">
+    <button onclick="doLogin()">Giriş Yap</button>
+    <div id="loginMsg" class="msg"></div>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <div><strong id="botTag">-</strong> · <span id="botPing">-</span>ms · <span id="guildInfo">-</span></div>
+    <button class="secondary" onclick="doLogout()">Çıkış</button>
+  </header>
+  <nav>
+    <button data-tab="genel" class="active" onclick="showTab('genel')">Genel</button>
+    <button data-tab="ayarlar" onclick="showTab('ayarlar')">Ayarlar</button>
+    <button data-tab="yetkili" onclick="showTab('yetkili')">Yetkililer</button>
+    <button data-tab="whitelist" onclick="showTab('whitelist')">Whitelist</button>
+    <button data-tab="guard" onclick="showTab('guard')">Guard</button>
+    <button data-tab="ot" onclick="showTab('ot')">OT Envanteri</button>
+    <button data-tab="banaff" onclick="showTab('banaff')">Ban Affı</button>
+  </nav>
+  <main>
+
+    <div class="tab active" id="tab-genel">
+      <div class="card">
+        <h3>Bot Durumu</h3>
+        <p>Sunucu sayısı: <strong id="s_guilds">-</strong></p>
+        <p>Ana sunucu üye sayısı: <strong id="s_members">-</strong></p>
+        <p>Bakım Modu: <strong id="s_maint">-</strong></p>
+        <button onclick="toggleMaintenance()">Bakım Modunu Aç/Kapat</button>
+      </div>
+    </div>
+
+    <div class="tab" id="tab-ayarlar">
+      <div class="card">
+        <h3>Genel Ayarlar</h3>
+        <div class="grid">
+          <div><label>Log Kanalı</label><select id="cfg_logChannelId"></select></div>
+          <div><label>Ticket Kategori</label><select id="cfg_ticketCategoryId"></select></div>
+          <div><label>Ticket Yetkili Rolü</label><select id="cfg_ticketStaffRoleId"></select></div>
+          <div><label>Ekip Rolü</label><select id="cfg_ekipRoleId"></select></div>
+          <div><label>New Rolü</label><select id="cfg_newRoleId"></select></div>
+          <div><label>Aktiflik Log Kanalı</label><select id="cfg_aktiflikLogChannelId"></select></div>
+          <div><label>Ban Affı Log Kanalı</label><select id="cfg_banAffLogChannelId"></select></div>
+          <div><label>OT Log Kanalı</label><select id="cfg_otLogChannelId"></select></div>
+        </div>
+        <button onclick="saveConfig()">Kaydet</button>
+        <div id="cfgMsg" class="msg"></div>
+      </div>
+    </div>
+
+    <div class="tab" id="tab-yetkili">
+      <div class="card">
+        <h3>Yetkililer</h3>
+        <div class="row">
+          <input id="staffId" placeholder="Kullanıcı ID">
+          <button onclick="staffAction('ekle')">Ekle</button>
+          <button class="danger" onclick="staffAction('kaldir')">Kaldır</button>
+        </div>
+        <table><thead><tr><th>Kullanıcı ID</th></tr></thead><tbody id="staffList"></tbody></table>
+      </div>
+    </div>
+
+    <div class="tab" id="tab-whitelist">
+      <div class="card">
+        <h3>Whitelist (Guard'dan Muaf)</h3>
+        <div class="row">
+          <input id="wlId" placeholder="Kullanıcı ID">
+          <button onclick="wlAction('ekle')">Ekle</button>
+          <button class="danger" onclick="wlAction('kaldir')">Kaldır</button>
+        </div>
+        <table><thead><tr><th>Kullanıcı ID</th></tr></thead><tbody id="wlList"></tbody></table>
+      </div>
+    </div>
+
+    <div class="tab" id="tab-guard">
+      <div class="card">
+        <h3>Guard Sistemi</h3>
+        <div class="toggle"><input type="checkbox" id="g_enabled"> Guard genel olarak açık</div>
+        <div class="grid">
+          <div>
+            <div class="toggle"><input type="checkbox" id="g_ban"> Ban Guard</div>
+            <label>Ban Limiti</label><input id="gl_ban" type="number" min="0">
+          </div>
+          <div>
+            <div class="toggle"><input type="checkbox" id="g_kick"> Kick Guard</div>
+            <label>Kick Limiti</label><input id="gl_kick" type="number" min="0">
+          </div>
+          <div>
+            <div class="toggle"><input type="checkbox" id="g_channel"> Kanal Silme Guard</div>
+            <label>Kanal Limiti</label><input id="gl_channel" type="number" min="0">
+          </div>
+          <div>
+            <div class="toggle"><input type="checkbox" id="g_role"> Rol Silme Guard</div>
+            <label>Rol Limiti</label><input id="gl_role" type="number" min="0">
+          </div>
+        </div>
+        <label>Sayaç Sıfırlama Süresi (dakika)</label>
+        <input id="g_window" type="number" min="1">
+        <button onclick="saveGuardCfg()">Kaydet</button>
+        <div id="guardMsg" class="msg"></div>
+      </div>
+    </div>
+
+    <div class="tab" id="tab-ot">
+      <div class="card">
+        <h3>OT Envanteri</h3>
+        <div class="row">
+          <input id="otId" placeholder="Kullanıcı ID">
+          <input id="otAmount" type="number" placeholder="Miktar (+/-)">
+          <button onclick="otAction()">Uygula</button>
+        </div>
+        <table><thead><tr><th>#</th><th>Kullanıcı ID</th><th>OT</th></tr></thead><tbody id="otList"></tbody></table>
+      </div>
+    </div>
+
+    <div class="tab" id="tab-banaff">
+      <div class="card">
+        <h3>Ban Affı Kayıtları</h3>
+        <table><thead><tr><th>Kullanıcı</th><th>Tarih</th><th>Sebep</th><th></th></tr></thead><tbody id="banaffList"></tbody></table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+var guildData = { channels: [], categories: [], roles: [] };
+
+function api(path, method, body) {
+  return fetch(path, {
+    method: method || "GET",
+    headers: { "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined
+  }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); });
+}
+
+function doLogin() {
+  var pw = document.getElementById("pw").value;
+  api("/api/login", "POST", { password: pw }).then(function (res) {
+    var msg = document.getElementById("loginMsg");
+    if (res.ok) { boot(); }
+    else { msg.className = "msg err"; msg.textContent = "Şifre yanlış."; }
+  });
+}
+function doLogout() {
+  api("/api/logout", "POST").then(function () { location.reload(); });
+}
+
+function showTab(name) {
+  document.querySelectorAll(".tab").forEach(function (t) { t.classList.remove("active"); });
+  document.querySelectorAll("nav button").forEach(function (b) { b.classList.remove("active"); });
+  document.getElementById("tab-" + name).classList.add("active");
+  document.querySelector('nav button[data-tab="' + name + '"]').classList.add("active");
+}
+
+function fillSelect(id, items, currentVal, withNone) {
+  var sel = document.getElementById(id);
+  sel.innerHTML = "";
+  if (withNone) {
+    var noneOpt = document.createElement("option");
+    noneOpt.value = ""; noneOpt.textContent = "— Yok —";
+    sel.appendChild(noneOpt);
+  }
+  items.forEach(function (it) {
+    var opt = document.createElement("option");
+    opt.value = it.id; opt.textContent = it.name + " (" + it.id + ")";
+    if (it.id === currentVal) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+function loadStatus() {
+  api("/api/status").then(function (res) {
+    if (!res.ok) return;
+    document.getElementById("botTag").textContent = res.data.botTag;
+    document.getElementById("botPing").textContent = res.data.ping;
+    document.getElementById("guildInfo").textContent = res.data.guildCount + " sunucu";
+    document.getElementById("s_guilds").textContent = res.data.guildCount;
+    document.getElementById("s_members").textContent = res.data.memberCount;
+    document.getElementById("s_maint").textContent = res.data.maintenanceMode ? "AÇIK" : "KAPALI";
+  });
+}
+
+function toggleMaintenance() {
+  api("/api/status").then(function (res) {
+    var next = !res.data.maintenanceMode;
+    api("/api/maintenance", "POST", { enabled: next }).then(function () { loadStatus(); });
+  });
+}
+
+function loadConfig() {
+  Promise.all([api("/api/config"), api("/api/guild-data")]).then(function (results) {
+    var cfg = results[0].data;
+    guildData = results[1].data;
+    fillSelect("cfg_logChannelId", guildData.channels, cfg.logChannelId, true);
+    fillSelect("cfg_ticketCategoryId", guildData.categories, cfg.ticketCategoryId, true);
+    fillSelect("cfg_ticketStaffRoleId", guildData.roles, cfg.ticketStaffRoleId, true);
+    fillSelect("cfg_ekipRoleId", guildData.roles, cfg.ekipRoleId, true);
+    fillSelect("cfg_newRoleId", guildData.roles, cfg.newRoleId, true);
+    fillSelect("cfg_aktiflikLogChannelId", guildData.channels, cfg.aktiflikLogChannelId, true);
+    fillSelect("cfg_banAffLogChannelId", guildData.channels, cfg.banAffLogChannelId, true);
+    fillSelect("cfg_otLogChannelId", guildData.channels, cfg.otLogChannelId, true);
+  });
+}
+
+function saveConfig() {
+  var body = {
+    logChannelId: document.getElementById("cfg_logChannelId").value,
+    ticketCategoryId: document.getElementById("cfg_ticketCategoryId").value,
+    ticketStaffRoleId: document.getElementById("cfg_ticketStaffRoleId").value,
+    ekipRoleId: document.getElementById("cfg_ekipRoleId").value,
+    newRoleId: document.getElementById("cfg_newRoleId").value,
+    aktiflikLogChannelId: document.getElementById("cfg_aktiflikLogChannelId").value,
+    banAffLogChannelId: document.getElementById("cfg_banAffLogChannelId").value,
+    otLogChannelId: document.getElementById("cfg_otLogChannelId").value
+  };
+  api("/api/config", "POST", body).then(function (res) {
+    var msg = document.getElementById("cfgMsg");
+    msg.className = res.ok ? "msg ok" : "msg err";
+    msg.textContent = res.ok ? "Kaydedildi." : "Hata oluştu.";
+  });
+}
+
+function loadStaff() {
+  api("/api/staff").then(function (res) {
+    var body = document.getElementById("staffList");
+    body.innerHTML = "";
+    res.data.staff.forEach(function (id) {
+      var tr = document.createElement("tr");
+      tr.innerHTML = "<td>" + id + "</td>";
+      body.appendChild(tr);
+    });
+  });
+}
+function staffAction(action) {
+  var id = document.getElementById("staffId").value.trim();
+  if (!id) return;
+  api("/api/staff", "POST", { userId: id, action: action }).then(function () {
+    document.getElementById("staffId").value = "";
+    loadStaff();
+  });
+}
+
+function loadWhitelist() {
+  api("/api/whitelist").then(function (res) {
+    var body = document.getElementById("wlList");
+    body.innerHTML = "";
+    res.data.whitelist.forEach(function (id) {
+      var tr = document.createElement("tr");
+      tr.innerHTML = "<td>" + id + "</td>";
+      body.appendChild(tr);
+    });
+  });
+}
+function wlAction(action) {
+  var id = document.getElementById("wlId").value.trim();
+  if (!id) return;
+  api("/api/whitelist", "POST", { userId: id, action: action }).then(function () {
+    document.getElementById("wlId").value = "";
+    loadWhitelist();
+  });
+}
+
+function loadGuard() {
+  api("/api/guard").then(function (res) {
+    var g = res.data;
+    document.getElementById("g_enabled").checked = g.enabled;
+    document.getElementById("g_ban").checked = g.systems.ban;
+    document.getElementById("g_kick").checked = g.systems.kick;
+    document.getElementById("g_channel").checked = g.systems.channel;
+    document.getElementById("g_role").checked = g.systems.role;
+    document.getElementById("gl_ban").value = g.limits.ban;
+    document.getElementById("gl_kick").value = g.limits.kick;
+    document.getElementById("gl_channel").value = g.limits.channel;
+    document.getElementById("gl_role").value = g.limits.role;
+    document.getElementById("g_window").value = g.windowMinutes;
+  });
+}
+function saveGuardCfg() {
+  var body = {
+    enabled: document.getElementById("g_enabled").checked,
+    systems: {
+      ban: document.getElementById("g_ban").checked,
+      kick: document.getElementById("g_kick").checked,
+      channel: document.getElementById("g_channel").checked,
+      role: document.getElementById("g_role").checked
+    },
+    limits: {
+      ban: document.getElementById("gl_ban").value,
+      kick: document.getElementById("gl_kick").value,
+      channel: document.getElementById("gl_channel").value,
+      role: document.getElementById("gl_role").value
+    },
+    windowMinutes: document.getElementById("g_window").value
+  };
+  api("/api/guard", "POST", body).then(function (res) {
+    var msg = document.getElementById("guardMsg");
+    msg.className = res.ok ? "msg ok" : "msg err";
+    msg.textContent = res.ok ? "Kaydedildi." : "Hata oluştu.";
+  });
+}
+
+function loadOt() {
+  api("/api/envanter").then(function (res) {
+    var body = document.getElementById("otList");
+    body.innerHTML = "";
+    res.data.envanter.forEach(function (item, idx) {
+      var tr = document.createElement("tr");
+      tr.innerHTML = "<td>" + (idx + 1) + "</td><td>" + item.id + "</td><td>" + item.ot + "</td>";
+      body.appendChild(tr);
+    });
+  });
+}
+function otAction() {
+  var id = document.getElementById("otId").value.trim();
+  var amount = document.getElementById("otAmount").value;
+  if (!id || amount === "") return;
+  api("/api/envanter", "POST", { userId: id, amount: amount }).then(function () {
+    document.getElementById("otId").value = "";
+    document.getElementById("otAmount").value = "";
+    loadOt();
+  });
+}
+
+function loadBanaff() {
+  api("/api/banaff").then(function (res) {
+    var body = document.getElementById("banaffList");
+    body.innerHTML = "";
+    res.data.records.forEach(function (r) {
+      var tr = document.createElement("tr");
+      var date = new Date(r.createdAt).toLocaleDateString("tr-TR");
+      tr.innerHTML = "<td>" + r.userTag + " (" + r.userId + ")</td><td>" + date + "</td><td>" + r.reason + "</td><td><button class=\\"danger\\" onclick=\\"deleteBanaff('" + r.id + "')\\">Sil</button></td>";
+      body.appendChild(tr);
+    });
+  });
+}
+function deleteBanaff(id) {
+  api("/api/banaff-delete", "POST", { id: id }).then(function () { loadBanaff(); });
+}
+
+function boot() {
+  document.getElementById("login").style.display = "none";
+  document.getElementById("app").style.display = "block";
+  loadStatus();
+  loadConfig();
+  loadStaff();
+  loadWhitelist();
+  loadGuard();
+  loadOt();
+  loadBanaff();
+  setInterval(loadStatus, 15000);
+}
+
+api("/api/status").then(function (res) {
+  if (res.ok) boot();
+});
+</script>
+</body>
+</html>`;
+
+
+// ===================== WEB PANEL (YÖNETİM PANELİ) =====================
+const crypto = require("crypto");
+
+const PANEL_PASSWORD = (process.env.PANEL_PASSWORD || "degistir123").trim();
+const panelSessions = new Map(); // token -> expiresAt
+
+function createSession() {
+  const token = crypto.randomBytes(32).toString("hex");
+  panelSessions.set(token, Date.now() + 24 * 60 * 60 * 1000); // 24 saat
+  return token;
+}
+function isValidSession(token) {
+  if (!token) return false;
+  const exp = panelSessions.get(token);
+  if (!exp) return false;
+  if (Date.now() > exp) {
+    panelSessions.delete(token);
+    return false;
+  }
+  return true;
+}
+function getCookie(req, name) {
+  const raw = req.headers.cookie || "";
+  const found = raw.split(";").map((c) => c.trim()).find((c) => c.startsWith(name + "="));
+  return found ? decodeURIComponent(found.split("=").slice(1).join("=")) : null;
+}
+
+app.use(express.json());
+
+function requirePanelAuth(req, res, next) {
+  const token = getCookie(req, "panel_token");
+  if (!isValidSession(token)) return res.status(401).json({ error: "Yetkisiz" });
+  next();
+}
+
+// ---- Giriş / Çıkış ----
+app.post("/api/login", (req, res) => {
+  const { password } = req.body || {};
+  if (password !== PANEL_PASSWORD) return res.status(401).json({ error: "Şifre yanlış" });
+  const token = createSession();
+  res.setHeader("Set-Cookie", "panel_token=" + token + "; HttpOnly; Path=/; Max-Age=86400; SameSite=Lax");
+  res.json({ ok: true });
+});
+
+app.post("/api/logout", (req, res) => {
+  const token = getCookie(req, "panel_token");
+  panelSessions.delete(token);
+  res.setHeader("Set-Cookie", "panel_token=; Path=/; Max-Age=0");
+  res.json({ ok: true });
+});
+
+// ---- Bot durumu ----
+app.get("/api/status", requirePanelAuth, (req, res) => {
+  const guild = client.guilds.cache.first();
+  res.json({
+    botTag: client.user?.tag || "Bağlanıyor...",
+    guildCount: client.guilds.cache.size,
+    memberCount: guild ? guild.memberCount : 0,
+    ping: client.ws.ping,
+    maintenanceMode,
+    uptimeMs: client.uptime || 0
+  });
+});
+
+// ---- Genel Config ----
+app.get("/api/config", requirePanelAuth, (req, res) => {
+  res.json({
+    logChannelId, ticketCategoryId, ticketStaffRoleId,
+    ekipRoleId, newRoleId, aktiflikLogChannelId, banAffLogChannelId, otLogChannelId
+  });
+});
+
+app.post("/api/config", requirePanelAuth, (req, res) => {
+  const b = req.body || {};
+  const fields = ["logChannelId", "ticketCategoryId", "ticketStaffRoleId", "ekipRoleId", "newRoleId", "aktiflikLogChannelId", "banAffLogChannelId"];
+  for (const f of fields) {
+    if (typeof b[f] === "string") {
+      const val = b[f].trim() || null;
+      config[f] = val;
+      if (f === "logChannelId") logChannelId = val;
+      if (f === "ticketCategoryId") ticketCategoryId = val;
+      if (f === "ticketStaffRoleId") ticketStaffRoleId = val;
+      if (f === "ekipRoleId") ekipRoleId = val;
+      if (f === "newRoleId") newRoleId = val;
+      if (f === "aktiflikLogChannelId") aktiflikLogChannelId = val;
+      if (f === "banAffLogChannelId") banAffLogChannelId = val;
+    }
+  }
+  if (typeof b.otLogChannelId === "string") {
+    otLogChannelId = b.otLogChannelId.trim() || null;
+    saveJSON(OTLOG_FILE, otLogChannelId);
+  }
+  saveJSON(CONFIG_FILE, config);
+  res.json({ ok: true });
+});
+
+// ---- Sunucudaki kanal/kategori/rol listesi (dropdown için) ----
+app.get("/api/guild-data", requirePanelAuth, (req, res) => {
+  const guild = client.guilds.cache.first();
+  if (!guild) return res.json({ channels: [], categories: [], roles: [] });
+  res.json({
+    channels: guild.channels.cache.filter((c) => c.type === ChannelType.GuildText).map((c) => ({ id: c.id, name: c.name })),
+    categories: guild.channels.cache.filter((c) => c.type === ChannelType.GuildCategory).map((c) => ({ id: c.id, name: c.name })),
+    roles: guild.roles.cache.filter((r) => r.id !== guild.id).map((r) => ({ id: r.id, name: r.name }))
+  });
+});
+
+// ---- Yetkililer ----
+app.get("/api/staff", requirePanelAuth, (req, res) => {
+  res.json({ staff: Array.from(STAFF_IDS), owners: OWNER_IDS });
+});
+app.post("/api/staff", requirePanelAuth, (req, res) => {
+  const { userId, action } = req.body || {};
+  if (!userId) return res.status(400).json({ error: "userId gerekli" });
+  if (action === "ekle") STAFF_IDS.add(userId.trim());
+  else if (action === "kaldir") STAFF_IDS.delete(userId.trim());
+  else return res.status(400).json({ error: "Geçersiz işlem" });
+  saveStaffFile();
+  res.json({ ok: true, staff: Array.from(STAFF_IDS) });
+});
+
+// ---- Whitelist ----
+app.get("/api/whitelist", requirePanelAuth, (req, res) => {
+  res.json({ whitelist: Array.from(whitelist) });
+});
+app.post("/api/whitelist", requirePanelAuth, (req, res) => {
+  const { userId, action } = req.body || {};
+  if (!userId) return res.status(400).json({ error: "userId gerekli" });
+  if (action === "ekle") whitelist.add(userId.trim());
+  else if (action === "kaldir") whitelist.delete(userId.trim());
+  else return res.status(400).json({ error: "Geçersiz işlem" });
+  saveWhitelist();
+  res.json({ ok: true, whitelist: Array.from(whitelist) });
+});
+
+// ---- Guard ayarları ----
+app.get("/api/guard", requirePanelAuth, (req, res) => res.json(guardConfig));
+app.post("/api/guard", requirePanelAuth, (req, res) => {
+  const b = req.body || {};
+  if (typeof b.enabled === "boolean") guardConfig.enabled = b.enabled;
+  if (b.systems) for (const k of ["ban", "kick", "channel", "role"]) {
+    if (typeof b.systems[k] === "boolean") guardConfig.systems[k] = b.systems[k];
+  }
+  if (b.limits) for (const k of ["ban", "kick", "channel", "role"]) {
+    const n = parseInt(b.limits[k], 10);
+    if (!Number.isNaN(n) && n >= 0) guardConfig.limits[k] = n;
+  }
+  if (b.windowMinutes) {
+    const n = parseInt(b.windowMinutes, 10);
+    if (!Number.isNaN(n) && n > 0) guardConfig.windowMinutes = n;
+  }
+  saveGuard();
+  res.json({ ok: true, guardConfig });
+});
+
+// ---- OT Envanteri ----
+app.get("/api/envanter", requirePanelAuth, (req, res) => {
+  const list = Object.entries(envanter).map(([id, d]) => ({ id, ot: d?.ot || 0 })).sort((a, b) => b.ot - a.ot);
+  res.json({ envanter: list });
+});
+app.post("/api/envanter", requirePanelAuth, (req, res) => {
+  const { userId, amount } = req.body || {};
+  const n = parseInt(amount, 10);
+  if (!userId || Number.isNaN(n)) return res.status(400).json({ error: "Geçersiz veri" });
+  const id = userId.trim();
+  ensureUser(id);
+  envanter[id].ot += n;
+  if (envanter[id].ot < 0) envanter[id].ot = 0;
+  saveJSON(INV_FILE, envanter);
+  res.json({ ok: true, ot: envanter[id].ot });
+});
+
+// ---- Ban Affı kayıtları ----
+app.get("/api/banaff", requirePanelAuth, (req, res) => res.json({ records: banAffRecords }));
+app.post("/api/banaff-delete", requirePanelAuth, (req, res) => {
+  const { id } = req.body || {};
+  banAffRecords = banAffRecords.filter((r) => r.id !== id);
+  saveBanAff();
+  res.json({ ok: true });
+});
+
+// ---- Bakım modu ----
+app.post("/api/maintenance", requirePanelAuth, (req, res) => {
+  maintenanceMode = !!req.body?.enabled;
+  res.json({ ok: true, maintenanceMode });
+});
+
+// ---- Panel sayfası ----
+app.get("/panel", (req, res) => res.status(200).send(PANEL_HTML));
 
 
 // ===================== LOGIN =====================
